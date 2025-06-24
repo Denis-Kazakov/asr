@@ -5,7 +5,8 @@ import whisper
 from accelerate import Accelerator
 
 from src.transcribers.transcriber_base import SpeechTranscriber
-from src.data_models import TranscriptionRequest, TranscriptFormat, TranscriptionEngine, TranscriptionEngineConfig
+from src.data_models import TranscriptionRequest, TranscriptionEngine, TranscriptionEngineConfig, \
+    TranscriptionResponse
 from src.utils.process_utils import get_gpu_memory
 
 
@@ -24,24 +25,36 @@ class LocalWhisper(SpeechTranscriber):
         """
         super().__init__(model_name=model_name, config=config)
 
-    def __call__(self, request: TranscriptionRequest) -> None:
+    def transcribe_file(self, request: TranscriptionRequest) -> TranscriptionResponse:
         try:
             with torch.no_grad():
-                result = self.model.transcribe(
-                    audio=str(request.filepath),
-                    fp16=(request.compute_type is None or request.compute_type=='fp16'),
-                    language=request.language_code,
-                )
+                if request.temperature:
+                    result = self.model.transcribe(
+                        audio=str(request.filepath),
+                        fp16=(request.compute_type is None or request.compute_type=='fp16'),
+                        language=request.language_code,
+                        temperature=request.temperature
+                    )
+                else:
+                    result = self.model.transcribe(
+                        audio=str(request.filepath),
+                        fp16=(request.compute_type is None or request.compute_type == 'fp16'),
+                        language=request.language_code
+                    )
             torch.cuda.empty_cache()
             logger.info(f'Transcript ready. Text: {result['text'][:100]}...')
-            if request.transcript_formats is None or TranscriptFormat.TXT in request.transcript_formats:
-                self._save_transcript(transcript= result['text'], mode='text')
-            elif TranscriptFormat.SRT in request.transcript_formats:
-                self._save_transcript(transcript=result['segments'], mode='json')
-            else:
-                raise ValueError('No acceptable format for saving the transcript')
+            return TranscriptionResponse(
+                transcript_text=result['text'],
+                transcript_segments=result['segments'],
+                error=None
+            )
         except Exception as e:
             logger.exception(f'Failed to transcribe file with error: {str(e)}')
+            return TranscriptionResponse(
+                transcript_text=None,
+                transcript_segments=None,
+                error=str(e)
+            )
 
     def load_model(self, model_name: str) -> None:
         if self.model_name == model_name:

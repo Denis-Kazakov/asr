@@ -4,7 +4,7 @@ from importlib import import_module
 
 import torch
 
-from src.data_models import TranscriptionEngine, TranscriptionRequest, TRANSCRIPTION_ENGINE_CONFIGS
+from src.data_models import TranscriptionEngine, TranscriptionRequest, TranscriptionResponse, TRANSCRIPTION_ENGINE_CONFIGS
 from src.utils.process_utils import get_gpu_memory
 
 
@@ -41,7 +41,7 @@ class TranscriptionService:
         self.transcriber = class_(model_name=model_name, config=engine_config)
         logger.debug(f'Transcriber loaded: {self.transcriber}.\nMemory state:\n {get_gpu_memory()}')
 
-    def transcribe(self, request: TranscriptionRequest) -> None:
+    def transcribe(self, request: TranscriptionRequest) -> TranscriptionResponse:
         logger.info(f'Received a transcription request: {request}')
         if request.model_name is None:
             model_name = TRANSCRIPTION_ENGINE_CONFIGS[request.engine].default_model
@@ -57,7 +57,8 @@ class TranscriptionService:
 ''')
             self.transcriber.load_model(model_name=model_name)
         logger.debug(f'Ready to start transcription. Memory state:\n {get_gpu_memory()}')
-        self.transcriber(request=request)
+        result = self.transcriber(request=request)
         logger.debug(f'Transcription finished. Memory state:\n {get_gpu_memory()}')
+        return result
 
 

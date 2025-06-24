@@ -2,12 +2,11 @@ import gc
 import json
 import logging
 import os
-from datetime import datetime
 from typing import Literal
 
 import torch.cuda
 
-from src.data_models import TranscriptionRequest, TranscriptionEngineConfig
+from src.data_models import TranscriptionRequest, TranscriptionResponse, TranscriptionEngineConfig, TranscriptFormat
 from src.utils.process_utils import get_gpu_memory
 
 logger = logging.getLogger(__name__)
@@ -30,10 +29,30 @@ class SpeechTranscriber:
             logger.exception(f'Failed to load the model with error: {str(e)}')
 
 
-    def __call__(self, request: TranscriptionRequest) -> None:
+    def __call__(self, request: TranscriptionRequest) -> TranscriptionResponse:
         """
-        Transcribe an audio file
+        Get an audio file transcribed and handle other tasks such as saving the results
         """
+        result = self.transcribe_file(request=request)
+        if result.error is None:
+            if request.save_to_file:
+                try:
+                    filename_stem = os.path.basename(request.filepath)
+                    if request.transcript_formats is None or TranscriptFormat.TXT in request.transcript_formats:
+                        self._save_transcript(transcript=result.transcript_text, filename_stem=filename_stem, mode='text')
+                    elif TranscriptFormat.SRT in request.transcript_formats:
+                        # TODO. This is wrong: SRT instead of JSON
+                        self._save_transcript(transcript=result.transcript_segments, filename_stem=filename_stem, mode='json')
+                    else:
+                        result.error = 'Saving failed.No acceptable format for saving the transcript'
+                        logger.error(result.error)
+                except Exception as e:
+                    result.error = f'Saving failed with error: {str(e)}'
+                    logger.exception(result.error)
+        return result
+
+    def transcribe_file(self, request: TranscriptionRequest) -> TranscriptionResponse:
+        """Transcribe an audio file"""
         raise NotImplementedError
 
     def load_model(self, model_name: str) -> None:
@@ -58,16 +77,15 @@ class SpeechTranscriber:
         else:
             logger.debug('No need to unload. Model is None')
 
-    def _save_transcript(self, transcript: str | dict, mode: Literal['text', 'json']) -> None:
-        t = datetime.now()
+    def _save_transcript(self, transcript: str | dict, filename_stem: str, mode: Literal['text', 'json']) -> None:
         if mode == 'text':
-            saving_path = os.path.join(self.__class__.OUTPUT_PATH, f'transcript_{t}.txt')
+            saving_path = os.path.join(self.__class__.OUTPUT_PATH, f'{filename_stem}.txt')
             with open(saving_path, 'w') as f:
                 f.write(transcript)
             logger.debug(f'Transcript text saved at {saving_path}')
 
         elif mode == 'json':
-            saving_path = os.path.join(self.__class__.OUTPUT_PATH, f'transcript_{t}.json')
+            saving_path = os.path.join(self.__class__.OUTPUT_PATH, f'{filename_stem}.json')
             with open(saving_path, 'w') as f:
                 json.dump(transcript, f)
             logger.debug(f'Transcript segments saved at {saving_path}')

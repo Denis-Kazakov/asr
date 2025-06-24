@@ -2,6 +2,7 @@ from enum import StrEnum
 from typing import Union
 
 from pydantic import Field, BaseModel, FilePath, conlist
+from pygments.lexer import default
 
 
 class TranscriptionEngine(StrEnum):
@@ -65,16 +66,44 @@ class TranscriptionRequest(BaseModel):
     language_code: str | None = Field(default=None, description='ISO language code, e.g. "en"')
     engine: TranscriptionEngine = TranscriptionEngine.WHISPER_LOCAL
     model_name: str | None = Field(default=None, description="ASR model to be used")
+    temperature: float | None = None
+    compute_type: str | None = Field(default=None, description="Compute type such as fp16")
     transcript_formats: list[TranscriptFormat] | None = Field(
         default=None,
         description='Transcript format, e.g. SRT'
     )
-    compute_type: str | None = Field(default=None, description="Compute type such as fp16")
+    save_to_file: bool | None = Field(
+        default=True,
+        description='Save transcripts to files with the same name but different extension'
+    )
+
+
+class TranscriptSegment(BaseModel):
+    start: float = Field(..., description='Start time of a segment', ge=0)
+    end: float = Field(..., description='End time of a segment', ge=0)
+    text: str = Field(..., description='Segment text')
+
 
 class TranscriptionResponse(BaseModel):
-    transcripts: conlist(FilePath) | None = Field(
-        ...,
-        description='Paths to one or more transcript files in specified formats'
+    transcript_text: str | None = Field(
+        default=None,
+        description='Transcript as a plain text'
     )
+    transcript_segments: list[TranscriptSegment] | None = None
     error: str | None = Field(default=None, description='Error message if transcription failed')
 
+
+class CalculateASRMetricsRequest(BaseModel):
+    hypothesis: str | list[str]
+    reference: str | list[str]
+
+
+class TranscribeCalculateASRMetricsRequest(TranscriptionRequest):
+    reference: str
+
+
+class ASRMetricsResponse(BaseModel):
+    wer: float = Field(..., description='Word error rate', ge=0)
+    cer: float = Field(..., description='Character error rate', ge=0)
+    wer_normalized: float = Field(..., description='Word error rate after inverse normalization', ge=0)
+    cer_normalized: float = Field(..., description='Character error rate after inverse normalization', ge=0)
