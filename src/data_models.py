@@ -1,9 +1,11 @@
 from enum import StrEnum
 from typing import Union
+import logging
 
-from pydantic import Field, BaseModel, FilePath, conlist
-from pygments.lexer import default
+from pydantic import Field, BaseModel, FilePath, field_validator
 
+
+logger = logging.getLogger(__name__)
 
 class TranscriptionEngine(StrEnum):
     """Engine name values should be the same as module names"""
@@ -76,6 +78,14 @@ class TranscriptionRequest(BaseModel):
         default=True,
         description='Save transcripts to files with the same name but different extension'
     )
+
+    # @field_validator('model_name')
+    # @classmethod
+    # def validate_model(cls, model_name: str):
+    #     if model_name is not None and model_name not in TRANSCRIPTION_ENGINE_CONFIGS[cls.engine].models.keys():
+    #         error = f'{cls.engine} does not have model {model_name}'
+    #         logger.error(error)
+    #         raise ValueError(error)
 
 
 class TranscriptSegment(BaseModel):

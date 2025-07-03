@@ -43,10 +43,17 @@ class TranscriptionService:
 
     def transcribe(self, request: TranscriptionRequest) -> TranscriptionResponse:
         logger.info(f'Received a transcription request: {request}')
+
+        # Check that the model name can be used with the engine
         if request.model_name is None:
             model_name = TRANSCRIPTION_ENGINE_CONFIGS[request.engine].default_model
+        elif request.model_name not in TRANSCRIPTION_ENGINE_CONFIGS[request.engine].models.keys():
+            error = f'{request.engine} cannot use model {request.model_name}'
+            logger.error(error)
+            raise ValueError(error)
         else:
             model_name = request.model_name
+
         if self.transcriber is None or self.transcriber.ENGINE != request.engine:
             logger.debug('Loading a new transcriber')
             self.load_transcriber(engine=request.engine, model_name=model_name)
