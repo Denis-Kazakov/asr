@@ -1,8 +1,8 @@
 from enum import StrEnum
-from typing import Union, Any
+from typing import Union, Any, Annotated
 import logging
 
-from pydantic import Field, BaseModel, FilePath, DirectoryPath
+from pydantic import Field, BaseModel, FilePath, DirectoryPath, BeforeValidator
 
 
 logger = logging.getLogger(__name__)
@@ -91,11 +91,11 @@ class TranscriptionRequest(BaseModel):
     engine: TranscriptionEngine = TranscriptionEngine.WHISPER_LOCAL
     model_name: str | None = Field(default=None, description="ASR model to be used")
     model_kwargs: dict[str, Any] | None = Field(
-        default=None,
+        default={},
         description='Engine-specific model parameters such as compute type (e.g. fp16)'
     )
     transcription_kwargs: dict[str, Any] | None = Field(
-        default=None,
+        default={},
         description='Engine-specific transcription parameters such as temperature'
     )
     transcript_formats: list[TranscriptFormat] | None = Field(
