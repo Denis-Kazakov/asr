@@ -15,7 +15,8 @@ class SpeechTranscriber:
     """Base class for all speech transcribers"""
     OUTPUT_PATH = 'output'
     ENGINE = None  # Must be defined in child classes
-    def __init__(self, model_name: str, config: TranscriptionEngineConfig):
+
+    def __init__(self, model_name: str, config: TranscriptionEngineConfig, **model_kwargs):
         os.makedirs(self.__class__.OUTPUT_PATH, exist_ok = True)
         self.model = None
         self.model_name = None
@@ -23,11 +24,10 @@ class SpeechTranscriber:
         if self.__class__.ENGINE is None:
             raise ValueError('A child class of SpeechTranscriber must define the ENGINE class variable')
         try:
-            self.load_model(model_name=model_name)
+            self.load_model(model_name=model_name, **model_kwargs)
             logger.debug('ASR model loaded')
         except Exception as e:
             logger.exception(f'Failed to load the model with error: {str(e)}')
-
 
     def __call__(self, request: TranscriptionRequest) -> TranscriptionResponse:
         """
@@ -55,7 +55,7 @@ class SpeechTranscriber:
         """Transcribe an audio file"""
         raise NotImplementedError
 
-    def load_model(self, model_name: str) -> None:
+    def load_model(self, model_name: str, **model_kwargs) -> None:
         """
         Load an ASR model
         """

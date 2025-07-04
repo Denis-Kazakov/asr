@@ -2,3 +2,9 @@
 .idea/
 .env
 /src/app.log
+/src/__pycache__/
+/src/auxiliaries/.ipynb_checkpoints/
+/src/nlp/__pycache__/
+/src/transcribers/__pycache__/
+/src/utils/__pycache__/
+

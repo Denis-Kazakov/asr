@@ -1,8 +1,8 @@
 from enum import StrEnum
-from typing import Union
+from typing import Union, Any
 import logging
 
-from pydantic import Field, BaseModel, FilePath, field_validator
+from pydantic import Field, BaseModel, FilePath, DirectoryPath
 
 
 logger = logging.getLogger(__name__)
@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 class TranscriptionEngine(StrEnum):
     """Engine name values should be the same as module names"""
     WHISPER_LOCAL = "whisper_local"
-    #WHISPER_HUGGING_FACE = "whisper_hf"
-    #FASTER_WHISPER = "faster_whisper"
-    #WHISPER_CPP = "whisper_cpp"
+    # WHISPER_HUGGING_FACE = "whisper_hf"
+    FASTER_WHISPER = "faster_whisper"
+    # WHISPER_CPP = "whisper_cpp"
 
 class TranscriptionEngineConfig(BaseModel):
     """Allowed parameters of a transcription method"""
-    models: dict[str, Union[FilePath, None]] = Field(..., description='Existing models with paths to pre-downloaded files')
+    models: dict[str, Union[FilePath, DirectoryPath, None]] = Field(..., description='Existing models with paths to pre-downloaded files')
     default_model: str | None
     supports_gpu: bool
     word_timestamps: bool = Field(..., description='Support for word-level timestamps?')
@@ -48,7 +48,29 @@ TRANSCRIPTION_ENGINE_CONFIGS = {
         transcriber_class='LocalWhisper',
         compute_types=['fp16', 'fp32']
     ),
-    # ...
+    TranscriptionEngine.FASTER_WHISPER: TranscriptionEngineConfig(
+        models={
+            'tiny.en': '/home/denis/Models/ASR/faster-whisper/',
+            'tiny': '/home/denis/Models/ASR/faster-whisper/',
+            'base.en': '/home/denis/Models/ASR/faster-whisper/',
+            'base': '/home/denis/Models/ASR/faster-whisper/',
+            'small.en': '/home/denis/Models/ASR/faster-whisper/',
+            'small': '/home/denis/Models/ASR/faster-whisper/',
+            'medium.en': '/home/denis/Models/ASR/faster-whisper/',
+            'medium': '/home/denis/Models/ASR/faster-whisper/',
+            'large-v1': '/home/denis/Models/ASR/faster-whisper/',
+            'large-v2': '/home/denis/Models/ASR/faster-whisper/',
+            'large-v3': '/home/denis/Models/ASR/faster-whisper/',
+            'large': '/home/denis/Models/ASR/faster-whisper/',
+            'large-v3-turbo': '/home/denis/Models/ASR/faster-whisper/',
+            'turbo': '/home/denis/Models/ASR/faster-whisper/'
+        },
+        default_model="large-v3",
+        supports_gpu=True,
+        word_timestamps=True,
+        transcriber_class='FasterWhisper',
+        compute_types=['int8', 'int8_float32', 'int8_float16', 'int8_bfloat16', 'int16', 'float16', 'bfloat16', 'float32']
+    ),
 }
 
 class TranscriptFormat(StrEnum):
@@ -68,8 +90,14 @@ class TranscriptionRequest(BaseModel):
     language_code: str | None = Field(default=None, description='ISO language code, e.g. "en"')
     engine: TranscriptionEngine = TranscriptionEngine.WHISPER_LOCAL
     model_name: str | None = Field(default=None, description="ASR model to be used")
-    temperature: float | None = None
-    compute_type: str | None = Field(default=None, description="Compute type such as fp16")
+    model_kwargs: dict[str, Any] | None = Field(
+        default=None,
+        description='Engine-specific model parameters such as compute type (e.g. fp16)'
+    )
+    transcription_kwargs: dict[str, Any] | None = Field(
+        default=None,
+        description='Engine-specific transcription parameters such as temperature'
+    )
     transcript_formats: list[TranscriptFormat] | None = Field(
         default=None,
         description='Transcript format, e.g. SRT'

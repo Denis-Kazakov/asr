@@ -27,18 +27,19 @@ class TranscriptionService:
         self.transcriber = None
         logger.debug(f'Transcriber unloaded. Memory state:\n {get_gpu_memory()}')
 
-    def load_transcriber(self, engine: TranscriptionEngine, model_name: str) -> None:
-        """Load a transcription model with the specified model"""
+    def load_transcriber(self, engine: TranscriptionEngine, model_name: str, **model_kwargs) -> None:
+        """Load a transcription engine with the specified model"""
         logger.debug(f'Starting loading engine {engine} with model {model_name}')
         if self.transcriber:
             self.unload_transcriber()
         engine_config = TRANSCRIPTION_ENGINE_CONFIGS.get(engine)
         if not engine_config:
-            logger.error(f'No config for engine: {engine}')
-            raise ValueError(f'No config for engine: {engine}')
+            error_message = f'No config for engine: {engine}'
+            logger.error(error_message)
+            raise ValueError(error_message)
         module = import_module(f'src.transcribers.{engine.value}')
         class_ = getattr(module, engine_config.transcriber_class)
-        self.transcriber = class_(model_name=model_name, config=engine_config)
+        self.transcriber = class_(model_name=model_name, config=engine_config, **model_kwargs)
         logger.debug(f'Transcriber loaded: {self.transcriber}.\nMemory state:\n {get_gpu_memory()}')
 
     def transcribe(self, request: TranscriptionRequest) -> TranscriptionResponse:
@@ -56,13 +57,13 @@ class TranscriptionService:
 
         if self.transcriber is None or self.transcriber.ENGINE != request.engine:
             logger.debug('Loading a new transcriber')
-            self.load_transcriber(engine=request.engine, model_name=model_name)
+            self.load_transcriber(engine=request.engine, model_name=model_name, **request.model_kwargs)
         if self.transcriber.model_name != model_name:
             logger.debug(f'''Loading a new model for the existing transcriber. 
             Transcriber model: {self.transcriber.model_name}.
             Requested model: {model_name}
 ''')
-            self.transcriber.load_model(model_name=model_name)
+            self.transcriber.load_model(model_name=model_name, **request.model_kwargs)
         logger.debug(f'Ready to start transcription. Memory state:\n {get_gpu_memory()}')
         result = self.transcriber(request=request)
         logger.debug(f'Transcription finished. Memory state:\n {get_gpu_memory()}')
