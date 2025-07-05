@@ -37,7 +37,7 @@ class SpeechTranscriber:
         if result.error is None:
             if request.save_to_file:
                 try:
-                    filename_stem = os.path.basename(request.filepath)
+                    filename_stem = os.path.splitext(os.path.basename(request.filepath))[0]
                     if request.transcript_formats is None or TranscriptFormat.TXT in request.transcript_formats:
                         self._save_transcript(transcript=result.transcript_text, filename_stem=filename_stem, mode='text')
                     elif TranscriptFormat.SRT in request.transcript_formats:
