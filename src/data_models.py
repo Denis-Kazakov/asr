@@ -81,8 +81,8 @@ class TranscriptFormat(StrEnum):
     SRT = 'srt'
     """SRT format with sequentially numbered and timestamped segments output by the model"""
 
-    SRT_SENTENCES = 'srt_sentences'
-    """Same as SRT but the transcript is re-segmented so that each segment is a sentence"""
+    JSON = 'json'
+    """JSON with timestamped segments"""
 
 
 class TranscriptionRequest(BaseModel):

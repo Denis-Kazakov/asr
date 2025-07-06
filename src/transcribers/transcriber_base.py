@@ -2,12 +2,13 @@ import gc
 import json
 import logging
 import os
-from typing import Literal
 
 import torch.cuda
+from pydantic import FilePath
 
 from src.data_models import TranscriptionRequest, TranscriptionResponse, TranscriptionEngineConfig, TranscriptFormat
 from src.utils.process_utils import get_gpu_memory
+from src.nlp.nlp_utils import segments2srt
 
 logger = logging.getLogger(__name__)
 
@@ -37,15 +38,11 @@ class SpeechTranscriber:
         if result.error is None:
             if request.save_to_file:
                 try:
-                    filename_stem = os.path.splitext(os.path.basename(request.filepath))[0]
-                    if request.transcript_formats is None or TranscriptFormat.TXT in request.transcript_formats:
-                        self._save_transcript(transcript=result.transcript_text, filename_stem=filename_stem, mode='text')
-                    elif TranscriptFormat.SRT in request.transcript_formats:
-                        # TODO. This is wrong: SRT instead of JSON
-                        self._save_transcript(transcript=result.transcript_segments, filename_stem=filename_stem, mode='json')
-                    else:
-                        result.error = 'Saving failed.No acceptable format for saving the transcript'
-                        logger.error(result.error)
+                    self._save_transcript(
+                        transcription_output=result,
+                        source_path=request.filepath,
+                        transcript_formats=request.transcript_formats
+                    )
                 except Exception as e:
                     result.error = f'Saving failed with error: {str(e)}'
                     logger.exception(result.error)
@@ -77,17 +74,32 @@ class SpeechTranscriber:
         else:
             logger.debug('No need to unload. Model is None')
 
-    def _save_transcript(self, transcript: str | dict, filename_stem: str, mode: Literal['text', 'json']) -> None:
-        if mode == 'text':
+    def _save_transcript(
+            self,
+            transcription_output: TranscriptionResponse,
+            source_path: FilePath,
+            transcript_formats: list | None
+    ) -> None:
+        """
+        Save the transcript in all specified formats.
+        If no formats are specified, save in all formats.
+        """
+        filename_stem = os.path.splitext(os.path.basename(source_path))[0]
+        if transcript_formats is None or TranscriptFormat.TXT in transcript_formats:
             saving_path = os.path.join(self.__class__.OUTPUT_PATH, f'{filename_stem}.txt')
             with open(saving_path, 'w') as f:
-                f.write(transcript)
+                f.write(transcription_output.transcript_text)
             logger.debug(f'Transcript text saved at {saving_path}')
-
-        elif mode == 'json':
+        if transcript_formats is None or TranscriptFormat.SRT in transcript_formats:
+            saving_path = os.path.join(self.__class__.OUTPUT_PATH, f'{filename_stem}.srt')
+            with open(saving_path, 'w') as f:
+                f.write(segments2srt(transcription_output.transcript_segments))
+            logger.debug(f'Transcript in the SRT format saved at {saving_path}')
+        if transcript_formats is None or TranscriptFormat.JSON in transcript_formats:
             saving_path = os.path.join(self.__class__.OUTPUT_PATH, f'{filename_stem}.json')
             with open(saving_path, 'w') as f:
-                json.dump(transcript, f)
-            logger.debug(f'Transcript segments saved at {saving_path}')
+                output = [segment.model_dump() for segment in transcription_output.transcript_segments]
+                json.dump(output, f)
+            logger.debug(f'Transcript JSON saved at {saving_path}')
 
 
