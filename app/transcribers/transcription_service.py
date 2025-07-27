@@ -4,8 +4,8 @@ from importlib import import_module
 
 import torch
 
-from src.data_models import TranscriptionEngine, TranscriptionRequest, TranscriptionResponse, TRANSCRIPTION_ENGINE_CONFIGS
-from src.utils.process_utils import get_gpu_memory
+from app.data_models import TranscriptionEngine, TranscriptionRequest, TranscriptionResponse, TRANSCRIPTION_ENGINE_CONFIGS
+from app.utils.process_utils import get_gpu_memory
 
 
 logger = logging.getLogger(__name__)

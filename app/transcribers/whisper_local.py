@@ -4,10 +4,10 @@ import torch
 import whisper
 from accelerate import Accelerator
 
-from src.transcribers.transcriber_base import SpeechTranscriber
-from src.data_models import TranscriptionRequest, TranscriptionEngine, TranscriptionEngineConfig, \
+from app.transcribers.transcriber_base import SpeechTranscriber
+from app.data_models import TranscriptionRequest, TranscriptionEngine, TranscriptionEngineConfig, \
     TranscriptionResponse
-from src.utils.process_utils import get_gpu_memory
+from app.utils.process_utils import get_gpu_memory
 
 
 logger = logging.getLogger(__name__)

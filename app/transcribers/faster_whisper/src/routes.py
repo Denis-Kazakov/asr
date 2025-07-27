@@ -3,11 +3,11 @@ import logging
 
 from fastapi import APIRouter, Form
 
-from src.data_models import (TranscriptionRequest, TranscriptionResponse, CalculateASRMetricsRequest,
+from app.data_models import (TranscriptionRequest, TranscriptionResponse, CalculateASRMetricsRequest,
                              ASRMetricsResponse, TranscribeCalculateASRMetricsRequest, TranscriptFormat)
-from src.transcribers.transcription_service import TranscriptionService
-from src.nlp.nlp_utils import Normalizer
-from src.nlp.asr_metrics import ASRMetrics
+from app.transcribers.transcription_service import TranscriptionService
+from app.nlp.nlp_utils import Normalizer
+from app.nlp.asr_metrics import ASRMetrics
 
 logger = logging.getLogger(__name__)
 

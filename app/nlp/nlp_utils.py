@@ -4,7 +4,7 @@ import logging
 
 import srt
 
-from src.data_models import TranscriptSegment
+from app.data_models import TranscriptSegment
 
 
 logger = logging.getLogger(__name__)

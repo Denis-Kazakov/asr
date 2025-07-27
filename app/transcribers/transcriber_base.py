@@ -6,9 +6,9 @@ import os
 import torch.cuda
 from pydantic import FilePath
 
-from src.data_models import TranscriptionRequest, TranscriptionResponse, TranscriptionEngineConfig, TranscriptFormat
-from src.utils.process_utils import get_gpu_memory
-from src.nlp.nlp_utils import segments2srt
+from app.data_models import TranscriptionRequest, TranscriptionResponse, TranscriptionEngineConfig, TranscriptFormat
+from app.utils.process_utils import get_gpu_memory
+from app.nlp.nlp_utils import segments2srt
 
 logger = logging.getLogger(__name__)
 

@@ -2,7 +2,7 @@ import logging
 
 from jiwer import wer, cer
 
-from src.data_models import CalculateASRMetricsRequest, ASRMetricsResponse
+from app.data_models import CalculateASRMetricsRequest, ASRMetricsResponse
 
 logger = logging.getLogger(__name__)
 

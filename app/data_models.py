@@ -1,8 +1,8 @@
 from enum import StrEnum
-from typing import Union, Any, Annotated
+from typing import Union, Any, Literal
 import logging
 
-from pydantic import Field, BaseModel, FilePath, DirectoryPath, BeforeValidator
+from pydantic import Field, BaseModel, FilePath, DirectoryPath
 
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,10 @@ class TranscriptionEngine(StrEnum):
 
 class TranscriptionEngineConfig(BaseModel):
     """Allowed parameters of a transcription method"""
-    models: dict[str, Union[FilePath, DirectoryPath, None]] = Field(..., description='Existing models with paths to pre-downloaded files')
+    models: dict[str, Union[FilePath, DirectoryPath, None]] = Field(
+        ...,
+        description='Existing models with paths to pre-downloaded files'
+    )
     default_model: str | None
     supports_gpu: bool
     word_timestamps: bool = Field(..., description='Support for word-level timestamps?')
@@ -65,7 +68,7 @@ TRANSCRIPTION_ENGINE_CONFIGS = {
             'large-v3-turbo': '/home/denis/Models/ASR/faster-whisper/',
             'turbo': '/home/denis/Models/ASR/faster-whisper/'
         },
-        default_model="large-v3",
+        default_model="medium",
         supports_gpu=True,
         word_timestamps=True,
         transcriber_class='FasterWhisper',
@@ -85,22 +88,33 @@ class TranscriptFormat(StrEnum):
     """JSON with timestamped segments"""
 
 
-class TranscriptionRequest(BaseModel):
+class TranscriptionServiceRequest(BaseModel):
+    """Request from the gateway to a transcription service"""
     filepath: FilePath = Field(..., description='Path to a media file')
     language_code: str | None = Field(default=None, description='ISO language code, e.g. "en"')
-    engine: TranscriptionEngine = TranscriptionEngine.WHISPER_LOCAL
     model_name: str | None = Field(default=None, description="ASR model to be used")
     model_kwargs: dict[str, Any] | None = Field(
         default={},
         description='Engine-specific model parameters such as compute type (e.g. fp16)'
     )
+    word_timestamps: bool = Field(default=False, description='Return word-level timestamps')
     transcription_kwargs: dict[str, Any] | None = Field(
         default={},
         description='Engine-specific transcription parameters such as temperature'
     )
+
+
+class TranscriptionRequest(TranscriptionServiceRequest):
+    """External transcription request to the gateway"""
+    engine: TranscriptionEngine = TranscriptionEngine.WHISPER_LOCAL
     transcript_formats: list[TranscriptFormat] | None = Field(
         default=None,
-        description='Transcript format, e.g. SRT'
+        description='Format of the transcript returned to the user, e.g. SRT'
+    )
+    segmentation: Literal['auto', 'sentence'] = Field(
+        default='auto',
+        description=('How the transcript should be split into time-stamped segments: auto (as returned by the model)'
+                     'or sentence (rearrange the transcript into time-stamped segments')
     )
     save_to_file: bool | None = Field(
         default=True,

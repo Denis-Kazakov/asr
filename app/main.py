@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 import uvicorn
 
-from logging_config import setup_logging
+from app.utils.logging_config import setup_logging
 setup_logging()
 from routes import router
 

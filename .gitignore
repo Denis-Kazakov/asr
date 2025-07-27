@@ -2,7 +2,7 @@
 .idea/
 .vscode/
 .env
-/src/app.log
+/app/app.log
 **/__pycache__/
 **/.ipynb_checkpoints/
 output/

@@ -1,6 +1,6 @@
 FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
 
-WORKDIR /app
+WORKDIR /src
 
 RUN apt-get update -y && apt-get install -y python3-pip
 
@@ -16,10 +16,6 @@ CMD ["python3", "infer.py"]
 
 
 
-# Установка Python
-RUN apt-get update && apt-get install -y python3.11 python3.11-venv python3.11-dev python3-pip \
-    && ln -s /usr/bin/python3.11 /usr/bin/python \
-    && python -m pip install --upgrade pip
 
 # Копирование зависимостей
 COPY requirements.txt .
@@ -30,10 +26,6 @@ RUN pip install -r requirements.txt
 # Копирование исходников
 COPY ./src /app/src
 
-# Переменные окружения
-ENV PYTHONPATH=/app:$PYTHONPATH
-ENV FLASK_ENV=dev
-ENV FLASK_APP=src/main.py
 
 # Открытие порта
 EXPOSE 5851
