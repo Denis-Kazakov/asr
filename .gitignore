@@ -1,9 +1,10 @@
-.venv/
-.idea/
+**/.venv/
+**/.idea/
 .vscode/
-.env
+**/.env
 /app/app.log
 **/__pycache__/
 **/.ipynb_checkpoints/
 output/
-
+auxiliaries/
+old_venv/

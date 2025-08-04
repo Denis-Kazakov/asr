@@ -5,11 +5,11 @@ from typing import List, Tuple
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_fixed
 
-from .transcriber_base import SpeechTranscriber
+from .transcriber_base import SpeechTranscriberBase
 from speech2text.audio_chunker import Chunker
 
 
-class OpenAIWhisper(SpeechTranscriber):
+class OpenAIWhisper(SpeechTranscriberBase):
     """ASR and post-processing with OpenAI API"""
 
     def __init__(self, api_key):

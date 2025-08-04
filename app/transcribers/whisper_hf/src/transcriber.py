@@ -4,10 +4,10 @@ import torch
 from accelerate import Accelerator
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
-from .transcriber_base import SpeechTranscriber
+from app.transcribers.transcriber_base import SpeechTranscriberBase
 
 
-class LocalWhisperHF(SpeechTranscriber):
+class SpeechTranscriber(SpeechTranscriberBase):
     """
     ASR with a local Whisper model in the HuggingFace implementation
     """

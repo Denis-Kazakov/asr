@@ -1,10 +1,10 @@
 import string
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
 
 import srt
 
-from app.data_models import TranscriptSegment
+from app.shared.data_models import TranscriptSegment
 
 
 logger = logging.getLogger(__name__)

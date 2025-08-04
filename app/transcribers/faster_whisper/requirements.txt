@@ -1,4 +1,3 @@
 dotenv
 fastapi[standard]
-pydantic
 faster-whisper

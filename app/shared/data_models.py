@@ -1,80 +1,64 @@
 from enum import StrEnum
-from typing import Union, Any, Literal
+from typing import Any, Literal
 import logging
 
 from pydantic import Field, BaseModel, FilePath, DirectoryPath
 
-
 logger = logging.getLogger(__name__)
 
+
 class TranscriptionEngine(StrEnum):
-    """Engine name values should be the same as module names"""
+    """Transcription engines"""
     WHISPER_LOCAL = "whisper_local"
     # WHISPER_HUGGING_FACE = "whisper_hf"
     FASTER_WHISPER = "faster_whisper"
     # WHISPER_CPP = "whisper_cpp"
 
+
 class TranscriptionEngineConfig(BaseModel):
-    """Allowed parameters of a transcription method"""
-    models: dict[str, Union[FilePath, DirectoryPath, None]] = Field(
+    """Allowed parameters of a transcription engine"""
+    models: list[str] = Field(
         ...,
-        description='Existing models with paths to pre-downloaded files'
+        description='Available model sizes/checkpoints'
     )
+    base_path: DirectoryPath | None = Field(
+        default=None,
+        description='Path to the folder with models on a local disk (will be bind mounted to a Docker container to '
+                    'prevent redownloading)'
+    )
+    container_name: str = Field(..., description='Name of the container in which the engine will run')
+    docker_image: str = Field(..., description='Docker image for the container')
     default_model: str | None
-    supports_gpu: bool
+    supports_gpu: bool = Field(default=True)
     word_timestamps: bool = Field(..., description='Support for word-level timestamps?')
     compute_types: list[str] | None = Field(default=None, description='Allowed compute types, e.g. float16')
-    transcriber_class: str = Field(..., description='Name of a class to be imported from the module, e.g. "LocalWhisper"')
+    kwargs: dict | None = Field(default=None, description='Engine-specific parameters')
 
 
 TRANSCRIPTION_ENGINE_CONFIGS = {
     TranscriptionEngine.WHISPER_LOCAL: TranscriptionEngineConfig(
-        models={
-            'tiny.en': None,
-            'tiny': '/home/denis/Models/ASR/whisper/tiny.pt',
-            'base.en': None,
-            'base': None,
-            'small.en': None,
-            'small': None,
-            'medium.en': None,
-            'medium': '/home/denis/Models/ASR/whisper/medium.pt',
-            'large-v1': None,
-            'large-v2': None,
-            'large-v3': '/home/denis/Models/ASR/whisper/large-v3.pt',
-            'large': None,
-            'large-v3-turbo': '/home/denis/Models/ASR/whisper/large-v3-turbo.pt',
-            'turbo': None
-        },
-        default_model="medium",
+        models=['tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 'medium.en', 'medium', 'large-v1', 'large-v2', 'large-v3', 'large', 'large-v3-turbo', 'turbo'],
+        base_path=DirectoryPath('/home/denis/Models/ASR/whisper/'),
+        container_name='local_whisper',
+        docker_image='local_whisper',
+        default_model="large-v3",
         supports_gpu=True,
         word_timestamps=True,
-        transcriber_class='LocalWhisper',
         compute_types=['fp16', 'fp32']
     ),
     TranscriptionEngine.FASTER_WHISPER: TranscriptionEngineConfig(
-        models={
-            'tiny.en': '/home/denis/Models/ASR/faster-whisper/',
-            'tiny': '/home/denis/Models/ASR/faster-whisper/',
-            'base.en': '/home/denis/Models/ASR/faster-whisper/',
-            'base': '/home/denis/Models/ASR/faster-whisper/',
-            'small.en': '/home/denis/Models/ASR/faster-whisper/',
-            'small': '/home/denis/Models/ASR/faster-whisper/',
-            'medium.en': '/home/denis/Models/ASR/faster-whisper/',
-            'medium': '/home/denis/Models/ASR/faster-whisper/',
-            'large-v1': '/home/denis/Models/ASR/faster-whisper/',
-            'large-v2': '/home/denis/Models/ASR/faster-whisper/',
-            'large-v3': '/home/denis/Models/ASR/faster-whisper/',
-            'large': '/home/denis/Models/ASR/faster-whisper/',
-            'large-v3-turbo': '/home/denis/Models/ASR/faster-whisper/',
-            'turbo': '/home/denis/Models/ASR/faster-whisper/'
-        },
+        models=['tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 'medium.en', 'medium', 'large-v1', 'large-v2', 'large-v3', 'large', 'large-v3-turbo', 'turbo'],
+        base_path=DirectoryPath('/home/denis/Models/ASR/faster-whisper/'),
+        docker_image='faster_whisper',
+        container_name='faster_whisper',
         default_model="medium",
         supports_gpu=True,
         word_timestamps=True,
-        transcriber_class='FasterWhisper',
-        compute_types=['int8', 'int8_float32', 'int8_float16', 'int8_bfloat16', 'int16', 'float16', 'bfloat16', 'float32']
+        compute_types=['int8', 'int8_float32', 'int8_float16', 'int8_bfloat16', 'int16', 'float16', 'bfloat16',
+                       'float32']
     ),
 }
+
 
 class TranscriptFormat(StrEnum):
     """Transcript format"""
@@ -88,15 +72,22 @@ class TranscriptFormat(StrEnum):
     """JSON with timestamped segments"""
 
 
-class TranscriptionServiceRequest(BaseModel):
-    """Request from the gateway to a transcription service"""
-    filepath: FilePath = Field(..., description='Path to a media file')
-    language_code: str | None = Field(default=None, description='ISO language code, e.g. "en"')
-    model_name: str | None = Field(default=None, description="ASR model to be used")
+class ModelSpec(BaseModel):
+    """Specifications for a model to be loaded into a transcriber"""
+    model_name: str = Field(..., description="ASR model to be used, e.g. 'medium'")
+    model_path: str | None = Field(default=None, description='Root directory where models can be saved in advance')
+    device: str | None = Field(default=None, description='Device (cpu/cuda)')
     model_kwargs: dict[str, Any] | None = Field(
         default={},
         description='Engine-specific model parameters such as compute type (e.g. fp16)'
     )
+
+
+class TranscriptionServiceRequest(BaseModel):
+    """Request from the gateway to a transcription service"""
+    filepath: FilePath = Field(..., description='Path to a media file')
+    language_code: str | None = Field(default=None, description='ISO language code, e.g. "en"')
+    model_spec: ModelSpec | None = Field(default=None, description="Specifications for a model to be used")
     word_timestamps: bool = Field(default=False, description='Return word-level timestamps')
     transcription_kwargs: dict[str, Any] | None = Field(
         default={},
@@ -143,6 +134,12 @@ class TranscriptionResponse(BaseModel):
     )
     transcript_segments: list[TranscriptSegment] | None = None
     error: str | None = Field(default=None, description='Error message if transcription failed')
+
+
+class TranscriberState(BaseModel):
+    """Current state of a transcriber"""
+    model_name: str | None = Field(default=None, description="Name of the loaded model (checkpoint), e.g. 'medium'")
+    busy: bool = Field(default=False, description="Are there any incomplete jobs with the model?")
 
 
 class CalculateASRMetricsRequest(BaseModel):
