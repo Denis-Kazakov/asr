@@ -5,6 +5,8 @@
 /app/app.log
 **/__pycache__/
 **/.ipynb_checkpoints/
+input/
 output/
 auxiliaries/
+gateway/
 old_venv/

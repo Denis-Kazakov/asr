@@ -54,7 +54,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
             self.model = whisper.load_model(
                 name=model_spec.model_name,
                 device='cpu',  # Forced to CPU to use the accelerator
-                download_root=model_spec.model_path,
+                download_root='../asr_models/',
                 **model_spec.model_kwargs
             )\
                 .to(self.accelerator.device)

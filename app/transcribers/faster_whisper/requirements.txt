@@ -1,3 +1,2 @@
-dotenv
-fastapi[standard]
 faster-whisper
+fastapi[standard]

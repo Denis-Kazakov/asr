@@ -1,0 +1,7 @@
+auxiliaries
+output
+**/__pycache__
+**/.venv
+**/*.log
+**/.idea
+

@@ -47,12 +47,13 @@ class SpeechTranscriber(SpeechTranscriberBase):
         if self.model_spec == model_spec:
             logger.debug('Model has already been loaded')
         else:
+            # TODO. Do not unload if it is None
             await self.unload_model()
             logger.debug(f'Starting loading model {model_spec.model_name}')
 
             self.model = WhisperModel(
                 model_size_or_path=model_spec.model_name,
-                download_root=model_spec.model_path,
+                download_root='/project/app/transcribers/asr_models',
                 device=model_spec.device,
                 **model_spec.model_kwargs
             )

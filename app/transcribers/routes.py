@@ -1,15 +1,12 @@
 import logging
 import os
 from importlib import import_module
-from dotenv import load_dotenv
 
 from fastapi import APIRouter
 
 from app.shared.data_models import TranscriptionServiceRequest, TranscriptionResponse
 
-load_dotenv('../.env')
-TRANSCRIBER_PATH = os.getenv('TRANSCRIBER_PATH')
-t = import_module(TRANSCRIBER_PATH)
+t = import_module(os.getenv('TRANSCRIBER_MODULE'))
 
 logger = logging.getLogger(__name__)
 
