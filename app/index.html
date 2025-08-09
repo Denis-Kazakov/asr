@@ -6,7 +6,7 @@
 </head>
 <body>
 <h2>Speech to text</h2>
-<form action="http://127.0.0.1:8000/transcribe_file/" method="post">
+<form action="http://127.0.0.1:8000/transcribe_form/" method="post">
     <input type="text" name="filepath" placeholder="Path to a media file" required>
     <br><br>
     <label for="language_code">Select a language:</label>
@@ -113,6 +113,14 @@
         <option value="yi">Yiddish</option>
         <option value="yo">Yoruba</option>
     </select>
+    <br><br>
+    <label for="engine">Select an ASR engine:</label>
+    <select name="engine" id="engine">
+        <option value="">Default</option>
+        <option value="whisper_local">Local Whisper</option>
+        <option value="faster_whisper">Faster Whisper</option>
+    </select>
+
     <br><br>
     <label for="model_name">Select a model:</label>
     <select name="model_name" id="model_name">

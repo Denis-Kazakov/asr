@@ -4,7 +4,8 @@ import logging
 from fastapi import APIRouter, Form
 
 from app.shared.data_models import (TranscriptionRequest, TranscriptionResponse, CalculateASRMetricsRequest,
-                                    ASRMetricsResponse, TranscribeCalculateASRMetricsRequest, TranscriptFormat)
+                                    ASRMetricsResponse, TranscribeCalculateASRMetricsRequest, TranscriptFormat,
+                                    TranscriptionRequestForm, ModelSpec)
 from asr_manager import ASRService
 # from app.nlp.nlp_utils import Normalizer
 # from app.nlp.asr_metrics import ASRMetrics
@@ -20,11 +21,16 @@ logger.debug('Getting ASR metrics service')
 router = APIRouter()
 logger.debug('Router is up and running')
 
-@router.post('/transcribe_file')
-async def transcribe_file(request: Annotated[TranscriptionRequest, Form()]) -> None:
+@router.post('/transcribe_form')
+async def transcribe_file_from_webform(request: Annotated[TranscriptionRequestForm, Form()]) -> None:
     """Transcribe a file loaded via a web-form"""
-    request.save_to_file = True  # The only return option for web-form input is to save transcripts in files
-    await transcription_service.transcribe(request)
+    await transcription_service.transcribe(
+        TranscriptionRequest(
+            **request.model_dump(),
+            model_spec=ModelSpec(model_name=request.model_name),
+            save_to_file=True  # The only return option for web-form input is to save transcripts in files
+        )
+    )
 
 @router.post('/transcribe_api')
 async def transcribe_file_via_api(request: TranscriptionRequest) -> TranscriptionResponse:

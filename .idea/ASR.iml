@@ -14,8 +14,9 @@
       <excludeFolder url="file://$MODULE_DIR$/app/transcribers/local_whisper/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/app/transcribers/whisper_hf/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/old_venv" />
+      <excludeFolder url="file://$MODULE_DIR$/app/input" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.12 (Faster Whisper)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.12 (Gateway)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

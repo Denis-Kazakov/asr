@@ -76,6 +76,13 @@ class TranscriptionRequest(TranscriptionServiceRequest):
     #         logger.error(error)
     #         raise ValueError(error)
 
+class TranscriptionRequestForm(BaseModel):
+    """Simple request from an HTML form"""
+    filepath: FilePath = Field(..., description='Path to a media file')
+    language_code: str | None = Field(default=None, description='ISO language code, e.g. "en"')
+    engine: TranscriptionEngine | None = TranscriptionEngine.FASTER_WHISPER
+    model_name: str = Field(..., description="ASR model to be used, e.g. 'medium'")
+
 
 class TranscriptSegment(BaseModel):
     start: float = Field(..., description='Start time of a segment', ge=0)

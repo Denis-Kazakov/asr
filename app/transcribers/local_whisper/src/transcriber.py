@@ -49,6 +49,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
         if self.model_spec == model_spec:
             logger.debug('Model has already been loaded')
         else:
+            # TODO. Do not unload if it is None
             await self.unload_model()
             logger.debug(f'Starting loading model {model_spec.model_name}. vRAM state:\n{get_gpu_memory()}')
             self.model = whisper.load_model(
