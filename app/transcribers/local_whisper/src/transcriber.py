@@ -23,6 +23,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
         self.accelerator = Accelerator()
 
     async def transcribe(self, request: TranscriptionServiceRequest) -> TranscriptionResponse:
+        logger.debug(f'Received transcription request: {request}')
         try:
             with torch.no_grad():
                 result = self.model.transcribe(
@@ -31,7 +32,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
                     **request.transcription_kwargs
                 )
             torch.cuda.empty_cache()
-            logger.info(f'Transcript ready. Text: {result['text'][:100]}...')
+            logger.info(f'Transcript ready. Text: {result["text"][:100]}...')
             return TranscriptionResponse(
                 transcript_text=result['text'],
                 transcript_segments=result['segments'],
@@ -54,8 +55,8 @@ class SpeechTranscriber(SpeechTranscriberBase):
             logger.debug(f'Starting loading model {model_spec.model_name}. vRAM state:\n{get_gpu_memory()}')
             self.model = whisper.load_model(
                 name=model_spec.model_name,
-                device='cpu',  # Forced to CPU to use the accelerator
-                download_root='../asr_models/',
+                device='cpu',  # Force to CPU to use the accelerator
+                download_root='/project/app/transcribers/asr_models',
                 **model_spec.model_kwargs
             )\
                 .to(self.accelerator.device)

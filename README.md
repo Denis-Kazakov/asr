@@ -13,13 +13,16 @@ Due to limited memory, only one transcription container is allowed to run at a t
 Build context for all transcribers is the app folder, e.g.:
 ~/MyCode/PyCharm/ASR/app$ docker build -t faster_whisper:0 -f ./transcribers/faster_whisper/Dockerfile .
 
+For local Whisper, start with a Pytorch image:
+docker build -t local_whisper:0 -f ./transcribers/local_whisper/Dockerfile.torch .
+
 
 ## TODO
-- Correct data submission from index.html
 - Do not unload model if it is None
-- Meaningful data validation response from a container
-- Container for local Whisper
+- Exception handling in a container
+- Model switching for local Whisper
+- Timeouts for  local Whisper
 - Log level from .env inside containers
 - Containers for NLP services
 - Get a full list of requirements out of the Faster Whisper container
-- Find out why the service only starts working with the second request
+- Find out why the service only starts working properly after the second request
