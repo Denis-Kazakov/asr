@@ -20,7 +20,6 @@ docker build -t local_whisper:0 -f ./transcribers/local_whisper/Dockerfile.torch
 ## TODO
 - Exception handling in a container
 - Model switching for local Whisper
-- Restore local Whisper
 - Log level from .env inside containers
 - Containers for NLP services
 - Get a full list of requirements out of the Faster Whisper container

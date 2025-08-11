@@ -23,7 +23,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
         self.accelerator = Accelerator()
 
     async def transcribe(self, request: TranscriptionServiceRequest) -> TranscriptionResponse:
-        logger.debug(f'Transcriber received a request for transcription: {request}')
+        logger.debug(f'Transcriber received a request for transcriptionpip install librosa: {request}')
         try:
             with torch.no_grad():
                 result = self.model.transcribe(
