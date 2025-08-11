@@ -1,3 +1,4 @@
+from email.policy import default
 from enum import Enum
 # from enum import StrEnum   # Will not work in the Faster Whisper container which uses Python 3.10
 from typing import Any, Literal
@@ -82,6 +83,12 @@ class TranscriptionRequestForm(BaseModel):
     language_code: str | None = Field(default=None, description='ISO language code, e.g. "en"')
     engine: TranscriptionEngine | None = TranscriptionEngine.FASTER_WHISPER
     model_name: str = Field(..., description="ASR model to be used, e.g. 'medium'")
+
+
+class TranscriptionServiceState(BaseModel):
+    """State of a transcription service container"""
+    healthy: bool = Field(..., description='Is a model loaded and the transcriber ready to receive requests?')
+    details: str = Field(..., description='Error message or loaded model specifications')
 
 
 class TranscriptSegment(BaseModel):

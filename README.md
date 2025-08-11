@@ -18,11 +18,9 @@ docker build -t local_whisper:0 -f ./transcribers/local_whisper/Dockerfile.torch
 
 
 ## TODO
-- Do not unload model if it is None
 - Exception handling in a container
 - Model switching for local Whisper
-- Timeouts for  local Whisper
+- Restore local Whisper
 - Log level from .env inside containers
 - Containers for NLP services
 - Get a full list of requirements out of the Faster Whisper container
-- Find out why the service only starts working properly after the second request

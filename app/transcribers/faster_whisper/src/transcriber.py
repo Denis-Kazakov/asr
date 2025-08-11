@@ -43,19 +43,23 @@ class SpeechTranscriber(SpeechTranscriberBase):
                 error=str(e)
             )
 
-    async def load_model(self, model_spec: ModelSpec) -> None:
-        if self.model_spec == model_spec:
-            logger.debug('Model has already been loaded')
-        else:
-            # TODO. Do not unload if it is None
+    async def load_model(self, model_spec: ModelSpec) -> tuple:
+        """
+        Load an ASR model
+        Output:
+            A tuple of:
+                - Instance of an ASR model
+                - model_spec
+        """
+        if self.model is not None:
             await self.unload_model()
-            logger.debug(f'Starting loading model {model_spec.model_name}')
+        logger.debug(f'Starting loading model {model_spec.model_name}')
 
-            self.model = WhisperModel(
-                model_size_or_path=model_spec.model_name,
-                download_root='/project/app/transcribers/asr_models',
-                device=model_spec.device,
-                **model_spec.model_kwargs
-            )
-            self.model_spec = model_spec
-            logger.debug(f'Model {model_spec.model_name} loaded')
+        model = WhisperModel(
+            model_size_or_path=model_spec.model_name,
+            download_root='/project/app/transcribers/asr_models',
+            device=model_spec.device,
+            **model_spec.model_kwargs
+        )
+        logger.debug(f'Model {model_spec.model_name} loaded')
+        return model, model_spec

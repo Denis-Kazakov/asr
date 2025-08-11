@@ -13,18 +13,22 @@ class SpeechTranscriberBase:
 
     async def __call__(self, request: TranscriptionServiceRequest) -> TranscriptionResponse:
         """Transcribe an audio file"""
-        if self.model_spec is not None and self.model_spec != request.model_spec:
-            await self.unload_model()
-        if self.model_spec is None:
-            await self.load_model(model_spec=request.model_spec)
+        logger.debug(f'Transcription service received request for transcription: {request}')
+        if request.model_spec != self.model_spec:
+            self.model, self.model_spec = await self.load_model(model_spec=request.model_spec)
         return await self.transcribe(request)
 
     async def transcribe(self, request: TranscriptionServiceRequest) -> TranscriptionResponse:
         raise NotImplementedError
 
-    async def load_model(self, model_spec: ModelSpec) -> None:
+    async def load_model(self, model_spec: ModelSpec) -> tuple:
         """
         Load an ASR model
+        Before loading, all subclasses should check if another model has been loaded and unload it first.
+        Output:
+            A tuple of:
+                - Instance of an ASR model
+                - model_spec
         """
         raise NotImplementedError
 
