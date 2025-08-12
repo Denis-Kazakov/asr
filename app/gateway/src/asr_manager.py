@@ -204,7 +204,7 @@ class ASRService:
     async def audio_duration(filepath: FilePath) -> float | int:
         """Determine audio duration in seconds"""
         try:
-            duration = librosa.get_duration(filename=filepath)
+            duration = librosa.get_duration(path=filepath)
             logger.debug(f'Record duration: {duration}')
             return duration
         except Exception as e:
