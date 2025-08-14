@@ -4,6 +4,7 @@ import shutil
 import json
 import logging
 from pathlib import Path
+import asyncio
 
 import docker
 from pydantic import FilePath
@@ -48,7 +49,7 @@ class ASRService:
                     return TranscriptionServiceState(**response.json())
             except:
                 pass
-            time.sleep(interval)
+            await asyncio.sleep(interval)
         try:
             response = httpx.get(url).json()
             return TranscriptionServiceState(**response)
@@ -57,6 +58,18 @@ class ASRService:
                 healthy=False,
                 details=f'Final health test failed with error {str(e)}'
             )
+
+    @staticmethod
+    async def wait_for_container_removal(container, interval=5, timeout=30):
+        """Wait until Docker confirms the container is gone."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                container.reload()  # Will raise NotFound if removed
+                await asyncio.sleep(interval)
+            except docker.errors.NotFound:
+                return True  # Container successfully removed
+        return False  # Timeout reached
 
 
     async def transcribe(self, request: TranscriptionRequest) -> TranscriptionResponse:
@@ -73,8 +86,18 @@ class ASRService:
             Requested container: {requested_container_name}
 ''')
             self.gpu_container.stop()
-            self.gpu_container.remove()
-            self.gpu_container = None
+            try:
+                self.gpu_container.stop()  # Force stop within 5 sec
+                if not self.wait_for_container_removal(self.gpu_container):
+                    error = 'Failed to remove a container'
+                    logger.error(error)
+                    raise RuntimeError(error)
+            except Exception as e:
+                error = f'Error while stopping a container: {str(e)}'
+                logger.error(error)
+                raise RuntimeError(error)
+            finally:
+                self.gpu_container = None
 
         if self.gpu_container is None:
             logger.debug(f'Starting a new Docker container')
