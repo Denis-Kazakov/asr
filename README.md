@@ -19,5 +19,4 @@ docker build -t local_whisper:0 -f ./transcribers/local_whisper/Dockerfile.torch
 
 ## TODO
 - Exception handling in a container
-- Log level from .env inside containers
 - Containers for NLP services
