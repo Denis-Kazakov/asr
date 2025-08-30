@@ -130,14 +130,9 @@ class ASRService:
             logger.debug(f'New container: {self.gpu_container}')
             logger.debug(f'Container attributes: {self.gpu_container.attrs}')
 
-        # Check that the model name can be used with the engine
-        # TODO. Implement checking other model specs
+        # Get default values if not provided
         if request.model_spec is None or request.model_spec.model_name is None:
             request.model_spec = ModelSpec(model_name=TRANSCRIPTION_ENGINE_CONFIGS[request.engine].default_model)
-        if request.model_spec.model_name not in TRANSCRIPTION_ENGINE_CONFIGS[request.engine].models:
-            error = f'{request.engine} cannot use model {request.model_spec.model_name}'
-            logger.error(error)
-            raise ValueError(error)
 
         # Transcription
         transcriber_state = await self.wait_for_service(url='http://127.0.0.1:3001/transcription_service/state')

@@ -1,21 +1,16 @@
-from email.policy import default
 from enum import Enum
 # from enum import StrEnum   # Will not work in the Faster Whisper container which uses Python 3.10
 from typing import Any, Literal
 import logging
+from typing_extensions import Self
 
-from pydantic import Field, BaseModel, FilePath
+
+from pydantic import Field, BaseModel, FilePath, model_validator
+
+from app.shared.transcription_engine_configs import TranscriptionEngine, TRANSCRIPTION_ENGINE_CONFIGS
 
 
 logger = logging.getLogger(__name__)
-
-
-class TranscriptionEngine(str, Enum):
-    """Transcription engines"""
-    WHISPER_LOCAL = "whisper_local"
-    # WHISPER_HUGGING_FACE = "whisper_hf"
-    FASTER_WHISPER = "faster_whisper"
-    # WHISPER_CPP = "whisper_cpp"
 
 
 class TranscriptFormat(str, Enum):
@@ -66,16 +61,31 @@ class TranscriptionRequest(TranscriptionServiceRequest):
     )
     save_to_file: bool | None = Field(
         default=True,
-        description='Save transcripts to files with the same name but different extension'
+        description='Save transcripts to files with the same name but different extensions'
     )
 
-    # @field_validator('model_name')
-    # @classmethod
-    # def validate_model(cls, model_name: str):
-    #     if model_name is not None and model_name not in TRANSCRIPTION_ENGINE_CONFIGS[cls.engine].models.keys():
-    #         error = f'{cls.engine} does not have model {model_name}'
-    #         logger.error(error)
-    #         raise ValueError(error)
+    @model_validator(mode='after')
+    def validate_model(self) -> Self:
+        # Check that the model name can be used with the engine
+        if self.model_spec.model_name not in TRANSCRIPTION_ENGINE_CONFIGS[self.engine].models:
+            error = f'{self.engine} cannot use model {self.model_spec.model_name}'
+            logger.error(error)
+            raise ValueError(error)
+
+        # Check that the model supports word-level timestamps if they are requested
+        if self.word_timestamps and not TRANSCRIPTION_ENGINE_CONFIGS[self.engine].word_timestamps:
+            error = f'{self.engine} does not support word-level timestamps'
+            logger.error(error)
+            raise ValueError(error)
+
+        # Check that the model supports word-level timestamps if segmentation by sentence is requested
+        if self.segmentation == 'sentence' and not TRANSCRIPTION_ENGINE_CONFIGS[self.engine].word_timestamps:
+            error = f'{self.engine} does not support word-level timestamps so segmentation by sentence is not possible'
+            logger.error(error)
+            raise ValueError(error)
+
+        return self
+
 
 class TranscriptionRequestForm(BaseModel):
     """Simple request from an HTML form"""

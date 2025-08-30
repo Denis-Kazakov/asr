@@ -1,11 +1,19 @@
 import logging
+from enum import Enum
+# from enum import StrEnum   # Will not work in the Faster Whisper container which uses Python 3.10
 
 from pydantic import Field, BaseModel, DirectoryPath
 
-from .data_models import TranscriptionEngine
-
 
 logger = logging.getLogger(__name__)
+
+
+class TranscriptionEngine(str, Enum):
+    """Transcription engines"""
+    WHISPER_LOCAL = "whisper_local"
+    # WHISPER_HUGGING_FACE = "whisper_hf"
+    FASTER_WHISPER = "faster_whisper"
+    # WHISPER_CPP = "whisper_cpp"
 
 
 class TranscriptionEngineConfig(BaseModel):

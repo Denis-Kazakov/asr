@@ -35,6 +35,7 @@ async def transcribe_file_from_webform(request: Annotated[TranscriptionRequestFo
 @router.post('/transcribe_api')
 async def transcribe_file_via_api(request: TranscriptionRequest) -> TranscriptionResponse:
     """Transcribe a file loaded via API"""
+    logger.debug(f'Transcription request received by the router: {request}')
     return await transcription_service.transcribe(request)
 
 # @router.post('/eval')
