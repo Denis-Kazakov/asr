@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.debug('Getting transcription service')
 transcription_service = ASRService()
 
-logger.debug('Getting ASR metrics service')
+# logger.debug('Getting ASR metrics service')
 # asr_metrics = ASRMetrics(normalizer=Normalizer())
 
 router = APIRouter()

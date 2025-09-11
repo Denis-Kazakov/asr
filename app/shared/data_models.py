@@ -1,16 +1,22 @@
-from enum import Enum
-# from enum import StrEnum   # Will not work in the Faster Whisper container which uses Python 3.10
-from typing import Any, Literal
 import logging
-from typing_extensions import Self
-
+from enum import Enum  # StrEnum will not work in the Faster Whisper container which uses Python 3.10
+from typing import Any
 
 from pydantic import Field, BaseModel, FilePath, model_validator
+from typing_extensions import Self
 
-from app.shared.transcription_engine_configs import TranscriptionEngine, TRANSCRIPTION_ENGINE_CONFIGS
-
+from app.shared.model_configs import TranscriptionEngine, TRANSCRIPTION_ENGINE_CONFIGS
 
 logger = logging.getLogger(__name__)
+
+class SegmentationType(str, Enum):
+    """Types of timestamped transcript segmentation"""
+
+    AUTO = 'auto'
+    """As returned by the model"""
+
+    SENTENCE = 'sentence'
+    """Rearrange the transcript into timestamped sentences"""
 
 
 class TranscriptFormat(str, Enum):
@@ -50,15 +56,13 @@ class TranscriptionServiceRequest(BaseModel):
 class TranscriptionRequest(TranscriptionServiceRequest):
     """External transcription request to the gateway"""
     engine: TranscriptionEngine | None = TranscriptionEngine.FASTER_WHISPER
+
     transcript_formats: list[TranscriptFormat] | None = Field(
         default=None,
         description='Format of the transcript returned to the user, e.g. SRT'
     )
-    segmentation: Literal['auto', 'sentence'] = Field(
-        default='auto',
-        description=('How the transcript should be split into time-stamped segments: auto (as returned by the model)'
-                     'or sentence (rearrange the transcript into time-stamped segments')
-    )
+    segmentation: SegmentationType | None = SegmentationType.AUTO
+
     save_to_file: bool | None = Field(
         default=True,
         description='Save transcripts to files with the same name but different extensions'
@@ -95,24 +99,32 @@ class TranscriptionRequestForm(BaseModel):
     model_name: str = Field(..., description="ASR model to be used, e.g. 'medium'")
 
 
-class TranscriptionServiceState(BaseModel):
+class ServiceState(BaseModel):
     """State of a transcription service container"""
-    healthy: bool = Field(..., description='Is a model loaded and the transcriber ready to receive requests?')
+    healthy: bool = Field(..., description='Is a model loaded and the service ready to receive requests?')
     details: str = Field(..., description='Error message or loaded model specifications')
 
 
+class TimeStampedWord(BaseModel):
+    start: float = Field(..., description='Start time of the word', ge=0)
+    end: float = Field(..., description='End time of the word', ge=0)
+    word: str = Field(..., description='The word')
+
+
 class TranscriptSegment(BaseModel):
-    start: float = Field(..., description='Start time of a segment', ge=0)
-    end: float = Field(..., description='End time of a segment', ge=0)
+    start: float = Field(..., description='Start time of the segment', ge=0)
+    end: float = Field(..., description='End time of the segment', ge=0)
     text: str = Field(..., description='Segment text')
+    words: list[TimeStampedWord] | None = Field(default=None, description='Words included in this segment with their timestamps')
 
 
 class TranscriptionResponse(BaseModel):
     transcript_text: str | None = Field(
         default=None,
-        description='Transcript as a plain text'
+        description='Transcript as plain text'
     )
     transcript_segments: list[TranscriptSegment] | None = None
+    language_code: str | None = Field(..., description='ISO language code, e.g. "en"')
     error: str | None = Field(default=None, description='Error message if transcription failed')
 
 
@@ -136,3 +148,7 @@ class ASRMetricsResponse(BaseModel):
     cer: float = Field(..., description='Character error rate', ge=0)
     wer_normalized: float = Field(..., description='Word error rate after inverse normalization', ge=0)
     cer_normalized: float = Field(..., description='Character error rate after inverse normalization', ge=0)
+
+class SegmentationRequest(TranscriptionResponse):
+    """Request to change transcript segmentation, e.g. make sure it is segmented by sentences"""
+    segmentation: SegmentationType

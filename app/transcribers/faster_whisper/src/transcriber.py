@@ -3,7 +3,7 @@ import logging
 from faster_whisper import WhisperModel
 
 from app.transcribers.transcriber_base import SpeechTranscriberBase
-from app.shared.data_models import TranscriptionServiceRequest, ModelSpec, TranscriptionResponse, TranscriptSegment
+from app.shared.data_models import TranscriptionServiceRequest, ModelSpec, TranscriptionResponse, TranscriptSegment,TimeStampedWord
 
 
 logger = logging.getLogger(__name__)
@@ -22,17 +22,33 @@ class SpeechTranscriber(SpeechTranscriberBase):
             segments, info = self.model.transcribe(
                 str(request.filepath),
                 language=request.language_code,
+                word_timestamps=request.word_timestamps,
                 **request.transcription_kwargs
             )
+            logger.debug(f'Transcript metadata: {info}')
             transcript_text = []
             transcript_segments = []
             for segment in segments:
+                logger.debug(f'Segment: {segment}')
                 transcript_text.append(segment.text)
-                transcript_segments.append(TranscriptSegment(start=segment.start, end=segment.end, text=segment.text))
+                if request.word_timestamps:
+                    words = [TimeStampedWord(start=word.start, end=word.end, word=word.word) for word in segment.words]
+                else:
+                    words = None
+                transcript_segments.append(
+                    TranscriptSegment(
+                        start=segment.start,
+                        end=segment.end,
+                        text=segment.text,
+                        words=words
+                    )
+                )
+
             logger.info(f'Transcript ready. Text: {transcript_text[:5]}...')
             return TranscriptionResponse(
                 transcript_text=' '.join(transcript_text),
                 transcript_segments=transcript_segments,
+                language_code=info.language,
                 error=None
             )
         except Exception as e:
@@ -40,6 +56,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
             return TranscriptionResponse(
                 transcript_text=None,
                 transcript_segments=None,
+                language_code=request.language_code,
                 error=str(e)
             )
 

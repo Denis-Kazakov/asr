@@ -7,7 +7,7 @@ from accelerate import Accelerator
 
 from app.transcribers.transcriber_base import SpeechTranscriberBase
 from app.shared.data_models import TranscriptionServiceRequest, ModelSpec, TranscriptionResponse
-from app.shared.process_utils import get_gpu_memory
+from app.shared.gpu_utils import get_gpu_memory
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
         self.accelerator = Accelerator()
 
     async def transcribe(self, request: TranscriptionServiceRequest) -> TranscriptionResponse:
-        logger.debug(f'Transcriber received a request for transcriptionpip install librosa: {request}')
+        logger.debug(f'Transcriber received a request for transcription: {request}')
         try:
             with torch.no_grad():
                 result = self.model.transcribe(
@@ -32,10 +32,11 @@ class SpeechTranscriber(SpeechTranscriberBase):
                     **request.transcription_kwargs
                 )
             torch.cuda.empty_cache()
-            logger.info(f'Transcript ready. Text: {result["text"][:100]}...')
+            logger.info(f'Transcript ready. Text: {result["text"][:100]}...  Language code: {result["language"]}')
             return TranscriptionResponse(
                 transcript_text=result['text'],
                 transcript_segments=result['segments'],
+                language_code=result['language'],
                 error=None
             )
         except Exception as e:
@@ -43,6 +44,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
             return TranscriptionResponse(
                 transcript_text=None,
                 transcript_segments=None,
+                language_code=request.language_code,
                 error=str(e)
             )
 

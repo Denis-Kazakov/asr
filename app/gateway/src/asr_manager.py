@@ -1,20 +1,20 @@
-import os
-import time
-import shutil
+import asyncio
 import json
 import logging
+import os
+import shutil
+import time
 from pathlib import Path
-import asyncio
 
 import docker
-from pydantic import FilePath
 import httpx
 import librosa
+from pydantic import FilePath
 
-from app.shared.data_models import TranscriptionServiceRequest, TranscriptionRequest, TranscriptionResponse, \
-    TranscriptFormat, ModelSpec, TranscriptionServiceState
-from app.shared.transcription_engine_configs import TRANSCRIPTION_ENGINE_CONFIGS
 from app.nlp.nlp_utils import segments2srt
+from app.shared.data_models import TranscriptionServiceRequest, TranscriptionRequest, TranscriptionResponse, \
+    TranscriptFormat, ModelSpec, ServiceState, SegmentationRequest, SegmentationType
+from app.shared.model_configs import TRANSCRIPTION_ENGINE_CONFIGS, SENTENCE_TOKENIZER_CONFIGS
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,10 @@ class ASRService:
 
     def __init__(self):
         self.docker_client = docker.from_env()
-        self.gpu_container = None  #Container requiring GPU (only one is allowed to run at a time)
+        self.transcriber_container = None  # Container requiring GPU (only one is allowed to run at a time)
+        self.sentence_tokenizer_container = None  # Will run on CPU (but also only one at a time)
+        with open('sentence_tokenizers.json') as f:
+            self.sentence_tokenizer_selector = json.load(f)
 
         # Input and output dirs
         script_dir = Path(__file__).parent.resolve()
@@ -38,39 +41,6 @@ class ASRService:
         logger.debug(f'Input dir: {self.input_dir}')
         logger.info('Transcription service initialized')
 
-    @staticmethod
-    async def wait_for_service(url, interval=5, timeout=60) -> TranscriptionServiceState:
-        start = time.time()
-        while time.time() - start < timeout:
-            try:
-                response = httpx.get(url)
-                logger.debug(f'Response from the health check endpoint: {response.json()}')
-                if response.status_code == 200 and response.json()['healthy']:
-                    return TranscriptionServiceState(**response.json())
-            except:
-                pass
-            await asyncio.sleep(interval)
-        try:
-            response = httpx.get(url).json()
-            return TranscriptionServiceState(**response)
-        except Exception as e:
-            return TranscriptionServiceState(
-                healthy=False,
-                details=f'Final health test failed with error {str(e)}'
-            )
-
-    @staticmethod
-    async def wait_for_container_removal(container, interval=5, timeout=30):
-        """Wait until Docker confirms the container is gone."""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                container.reload()  # Will raise NotFound if removed
-                await asyncio.sleep(interval)
-            except docker.errors.NotFound:
-                return True  # Container successfully removed
-        return False  # Timeout reached
-
 
     async def transcribe(self, request: TranscriptionRequest) -> TranscriptionResponse:
         logger.info(f'Received a transcription request: {request}')
@@ -79,29 +49,18 @@ class ASRService:
         requested_container_name = TRANSCRIPTION_ENGINE_CONFIGS[request.engine].container_name
         requested_image = TRANSCRIPTION_ENGINE_CONFIGS[request.engine].docker_image
 
-        # Container name attribute in Docker always have a leading slash
-        if self.gpu_container is not None and self.gpu_container.attrs['Name'] != f'/{requested_container_name}':
+        # Container name attribute in Docker always has a leading slash
+        if self.transcriber_container is not None and self.transcriber_container.attrs['Name'] != f'/{requested_container_name}':
             logger.debug(f'''Need to swap the current Docker container for a different one. 
-            Current container: {self.gpu_container.attrs['Name']}
+            Current container: {self.transcriber_container.attrs['Name']}
             Requested container: {requested_container_name}
 ''')
-            self.gpu_container.stop()
-            try:
-                self.gpu_container.stop()  # Force stop within 5 sec
-                if not self.wait_for_container_removal(self.gpu_container):
-                    error = 'Failed to remove a container'
-                    logger.error(error)
-                    raise RuntimeError(error)
-            except Exception as e:
-                error = f'Error while stopping a container: {str(e)}'
-                logger.error(error)
-                raise RuntimeError(error)
-            finally:
-                self.gpu_container = None
+            await self.stop_container(self.transcriber_container)
+            self.transcriber_container = None
 
-        if self.gpu_container is None:
+        if self.transcriber_container is None:
             logger.debug(f'Starting a new Docker container')
-            self.gpu_container = self.docker_client.containers.run(
+            self.transcriber_container = self.docker_client.containers.run(
                 image=requested_image,
                 detach=True,
                 device_requests=[
@@ -127,19 +86,21 @@ class ASRService:
                         {'bind': '/project/app/input', 'mode': 'ro'}
                 }
             )
-            logger.debug(f'New container: {self.gpu_container}')
-            logger.debug(f'Container attributes: {self.gpu_container.attrs}')
+            logger.debug(f'New container: {self.transcriber_container}')
+            logger.debug(f'Container attributes: {self.transcriber_container.attrs}')
 
         # Get default values if not provided
         if request.model_spec is None or request.model_spec.model_name is None:
             request.model_spec = ModelSpec(model_name=TRANSCRIPTION_ENGINE_CONFIGS[request.engine].default_model)
 
-        # Transcription
+
+        # Wait until the service is ready
         transcriber_state = await self.wait_for_service(url='http://127.0.0.1:3001/transcription_service/state')
         if not transcriber_state.healthy:
             return TranscriptionResponse(
                 transcript_text=None,
                 transcript_segments=None,
+                language_code=request.language_code,
                 error=transcriber_state.details
             )
 
@@ -147,6 +108,7 @@ class ASRService:
         duration = await self.audio_duration(request.filepath)
         timeout = 120  + 0.3 * duration
 
+        # Transcription
         logger.info(f'Ready to start transcription')
         basename = os.path.basename(request.filepath)
         shutil.copyfile(request.filepath, os.path.join(self.input_dir, basename))
@@ -162,7 +124,10 @@ class ASRService:
             response.raise_for_status()
             logger.info(f'Transcription finished')
             logger.debug(f'Response: {response.json()}')
-            response = TranscriptionResponse(**response.json())
+
+            response = await self.segment_transcript(SegmentationRequest(segmentation=request.segmentation, **response.json()))
+            logger.debug(f'Response from the transcript segmentation function: {response}')
+
             if request.save_to_file:
                 await self._save_transcript(
                     transcription_output=response,
@@ -174,18 +139,21 @@ class ASRService:
             message = f'Transcription request failed with error: {exc}'
             logger.error(message)
             return TranscriptionResponse(
+                language_code=request.language_code,
                 error=message
             )
         except httpx.HTTPStatusError as exc:
             message = f"Transcription request received an error response: {exc}"
             logger.error(message)
             return TranscriptionResponse(
+                language_code=request.language_code,
                 error=message
             )
         except Exception as exc:
             message = f'Transcription failed with error" {str(exc)}'
             logger.error(message)
             return TranscriptionResponse(
+                language_code=request.language_code,
                 error=message
             )
 
@@ -229,3 +197,145 @@ class ASRService:
             error_message = f'Failed to get audio duration with error: {str(e)}'
             logger.error(error_message)
             raise RuntimeError(error_message)
+
+    async def stop_container(self, container):
+        logger.debug(f'Stopping container {container.attrs['Name']}')
+        try:
+            container.stop()
+            if not await self.wait_for_container_removal(container):
+                error = 'Failed to remove a container'
+                logger.error(error)
+                raise RuntimeError(error)
+        except Exception as e:
+            error = f'Error while stopping a container: {str(e)}'
+            logger.error(error)
+            raise RuntimeError(error)
+
+    @staticmethod
+    async def wait_for_container_removal(container, interval=5, timeout=30):
+        """Wait until Docker confirms the container is gone."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                container.reload()  # Will raise NotFound if removed
+                logger.debug('Waiting for container removal. The container is still there')
+                await asyncio.sleep(interval)
+            except docker.errors.NotFound:
+                logger.debug('Container removed')
+                return True  # Container successfully removed
+        logger.error('Container removal timeout has been reached')
+        return False  # Timeout reached
+
+    @staticmethod
+    async def wait_for_service(url, interval=5, timeout=60) -> ServiceState:
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                response = httpx.get(url)
+                logger.debug(f'Response from the health check endpoint: {response.json()}')
+                if response.status_code == 200 and response.json()['healthy']:
+                    return ServiceState(**response.json())
+            except:
+                pass
+            await asyncio.sleep(interval)
+        try:
+            response = httpx.get(url).json()
+            return ServiceState(**response)
+        except Exception as e:
+            return ServiceState(
+                healthy=False,
+                details=f'Final health test failed with error {str(e)}'
+            )
+
+    async def segment_transcript(self, request: SegmentationRequest) -> TranscriptionResponse:
+        """Re-segment transcript as requested"""
+
+        logger.debug(f'Request for segmentation received: {request}')
+
+        if request.segmentation == SegmentationType.AUTO:
+            logger.debug('Segmentation not required')
+            return TranscriptionResponse(**request.model_dump())
+
+        sentence_tokenizer_name = self.sentence_tokenizer_selector.get(request.language_code)
+        if not sentence_tokenizer_name:
+            error = (f'Transcript segmentation left unchanged: no sentence tokenizer available for the transcript '
+                     f'language ({request.language_code})')
+            logger.debug(error)
+            response = TranscriptionResponse(**request.model_dump())
+            response.error = error
+            return response
+
+        # Spin up a sentence tokenizer container for the transcript language if necessary
+        if self.sentence_tokenizer_container is not None and self.sentence_tokenizer_container.attrs['Name'] \
+                != f'/{SENTENCE_TOKENIZER_CONFIGS[sentence_tokenizer_name].container_name}':
+            logger.debug(f'''Need to swap the current Docker container for a different one. 
+                        Current container: {self.sentence_tokenizer_container.attrs['Name']}
+                        Requested container: {sentence_tokenizer_name}
+            ''')
+            await self.stop_container(self.sentence_tokenizer_container)
+            self.sentence_tokenizer_container = None
+
+        if self.sentence_tokenizer_container is None:
+            config = SENTENCE_TOKENIZER_CONFIGS[sentence_tokenizer_name]
+            logger.debug(f'Starting a tokenizer container for language code: {request.language_code}')
+            self.sentence_tokenizer_container = self.docker_client.containers.run(
+                image=config.docker_image,
+                detach=True,
+                environment={
+                    'SENTENCE_TOKENIZER_MODULE': config.tokenizer_module,
+                },
+                name=config.container_name,
+                remove=False,
+                ports={'3002/tcp': 3002},
+                tty=True,
+                volumes={
+                    config.download_path:
+                        {'bind': '/project/app/nlp/transcript_segmentation/tokenizer_models', 'mode': 'ro'},
+                }
+            )
+            logger.debug(f'New container: {self.sentence_tokenizer_container}')
+            logger.debug(f'Container attributes: {self.sentence_tokenizer_container.attrs}')
+
+        # Wait until the service is ready
+        tokenizer_state = await self.wait_for_service(url='http://127.0.0.1:3002/nlp/segmentation_service_state')
+        if not tokenizer_state.healthy:
+            response = TranscriptionResponse(**request.model_dump())
+            response.error = tokenizer_state.details
+            logger.error(f'Tokenizer not healthy. Details: {tokenizer_state.details}')
+            return response
+
+        logger.info(f'Sending request for transcript segmentation')
+        try:
+            response = httpx.post(
+                'http://127.0.0.1:3002/nlp/segmentation',
+                json=request.model_dump()
+            )
+            response.raise_for_status()
+            logger.info(f'Segmentation finished')
+            logger.debug(f'Response: {response.json()}')
+            return TranscriptionResponse(**response.json())
+
+        except httpx.RequestError as exc:
+            message = f'Segmentation request failed with error: {exc}'
+            logger.error(message)
+            return TranscriptionResponse(
+                language_code=request.language_code,
+                error=message
+            )
+        except httpx.HTTPStatusError as exc:
+            message = f"Segmentation request received an error response: {exc}"
+            logger.error(message)
+            return TranscriptionResponse(
+                language_code=request.language_code,
+                error=message
+            )
+        except Exception as exc:
+            message = f'Segmentation failed with error" {str(exc)}'
+            logger.error(message)
+            return TranscriptionResponse(
+                language_code=request.language_code,
+                error=message
+            )
+
+
+

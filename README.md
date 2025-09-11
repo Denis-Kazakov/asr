@@ -9,6 +9,8 @@ Folder structure in Docker containers will be the same as in the project: starti
 
 Due to limited memory, only one transcription container is allowed to run at a time so they all use the same port (3001).
 
+NLP models that can run on GPU (Stanza) are forced to run on CPU to minimize container loading/unloading as their workload is much smaller than speech recognition. Only one sentence tokenizer is allowed to run at a time to save RAM, so their ports are also the same (3002).
+
 ## Docker
 Build context for all transcribers is the app folder, e.g.:
 ~/MyCode/PyCharm/ASR/app$ docker build -t faster_whisper:0 -f ./transcribers/faster_whisper/Dockerfile .
@@ -16,7 +18,9 @@ Build context for all transcribers is the app folder, e.g.:
 For local Whisper, start with a Pytorch image:
 docker build -t local_whisper:0 -f ./transcribers/local_whisper/Dockerfile.torch .
 
+For Stanza:
+docker build -t stanza:0 -f ./nlp/transcript_segmentation/stanza/Dockerfile .
+
 
 ## TODO
-- Exception handling in a container
-- Containers for NLP services
+- Graceful shutdown with container stopping

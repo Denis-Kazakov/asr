@@ -6,6 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/app/transcribers/faster_whisper" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/app/transcribers/local_whisper" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/app/transcribers/whisper_hf" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/app/nlp/transcript_segmentation/stanza/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/app/auxiliaries" />
       <excludeFolder url="file://$MODULE_DIR$/app/output" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />

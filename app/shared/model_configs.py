@@ -1,8 +1,7 @@
 import logging
-from enum import Enum
-# from enum import StrEnum   # Will not work in the Faster Whisper container which uses Python 3.10
+from enum import Enum  # StrEnum will not work in the Faster Whisper container which uses Python 3.10
 
-from pydantic import Field, BaseModel, DirectoryPath
+from pydantic import Field, BaseModel
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +21,7 @@ class TranscriptionEngineConfig(BaseModel):
         ...,
         description='Available model sizes/checkpoints'
     )
-    download_path: DirectoryPath | None = Field(
+    download_path: str | None = Field(
         default=None,
         description='Path to the folder with models on a local disk (will be bind mounted to a Docker container to '
                     'prevent redownloading)'
@@ -40,7 +39,7 @@ class TranscriptionEngineConfig(BaseModel):
 TRANSCRIPTION_ENGINE_CONFIGS = {
     TranscriptionEngine.WHISPER_LOCAL: TranscriptionEngineConfig(
         models=['tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 'medium.en', 'medium', 'large-v1', 'large-v2', 'large-v3', 'large', 'large-v3-turbo', 'turbo'],
-        download_path=DirectoryPath('/home/denis/Models/ASR/whisper/'),
+        download_path='/home/denis/Models/ASR/whisper/',
         container_name='local_whisper',
         docker_image='local_whisper:0',
         transcriber_module='app.transcribers.local_whisper.src.transcriber',
@@ -51,7 +50,7 @@ TRANSCRIPTION_ENGINE_CONFIGS = {
     ),
     TranscriptionEngine.FASTER_WHISPER: TranscriptionEngineConfig(
         models=['tiny.en', 'tiny', 'base.en', 'base', 'small.en', 'small', 'medium.en', 'medium', 'large-v1', 'large-v2', 'large-v3', 'large', 'large-v3-turbo', 'turbo'],
-        download_path=DirectoryPath('/home/denis/Models/ASR/faster-whisper/'),
+        download_path='/home/denis/Models/ASR/faster-whisper/',
         docker_image='faster_whisper:0',
         container_name='faster_whisper',
         transcriber_module='app.transcribers.faster_whisper.src.transcriber',
@@ -60,5 +59,38 @@ TRANSCRIPTION_ENGINE_CONFIGS = {
         word_timestamps=True,
         compute_types=['int8', 'int8_float32', 'int8_float16', 'int8_bfloat16', 'int16', 'float16', 'bfloat16',
                        'float32']
+    ),
+}
+
+
+class SentenceTokenizer(str, Enum):
+    """Sentence tokenizers"""
+    STANZA = "stanza"
+    NLTK = "nltk"
+    SPACY = "spacy"
+
+
+class SentenceTokenizerConfig(BaseModel):
+    """Allowed parameters of a sentence tokenizer"""
+
+    download_path: str | None = Field(
+        default=None,
+        description='Path to the folder with models on a local disk (will be bind mounted to a Docker container to '
+                    'prevent redownloading)'
+    )
+    container_name: str = Field(..., description='Name of the container in which the engine will run')
+    docker_image: str = Field(..., description='Docker image for the container')
+    tokenizer_module: str = Field(..., description='Tokenizer module defining SpeechTranscriber class')
+    supports_gpu: bool = Field(default=False)
+    kwargs: dict | None = Field(default=None, description='Tokenizer-specific parameters')
+
+
+SENTENCE_TOKENIZER_CONFIGS = {
+    SentenceTokenizer.STANZA: SentenceTokenizerConfig(
+        download_path='/home/denis/Models/NLP/stanza_resources/',
+        container_name='stanza',
+        docker_image='stanza:0',
+        tokenizer_module='app.nlp.transcript_segmentation.stanza.src.tokenizer',
+        supports_gpu=True,
     ),
 }
