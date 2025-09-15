@@ -29,6 +29,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
                 result = self.model.transcribe(
                     audio=str(request.filepath),
                     language=request.language_code,
+                    word_timestamps=request.word_timestamps,
                     **request.transcription_kwargs
                 )
             torch.cuda.empty_cache()
