@@ -90,7 +90,7 @@ SENTENCE_TOKENIZER_CONFIGS = {
         download_path='/home/denis/Models/NLP/stanza_resources/',
         container_name='stanza',
         docker_image='stanza:0',
-        tokenizer_module='app.nlp.transcript_segmentation.stanza.src.tokenizer',
+        tokenizer_module='app.nlp.transcript_segmentation.stanza.src.segmenter',
         supports_gpu=True,
     ),
 }

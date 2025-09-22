@@ -285,7 +285,7 @@ class ASRService:
                     'SENTENCE_TOKENIZER_MODULE': config.tokenizer_module,
                 },
                 name=config.container_name,
-                remove=False,
+                remove=True,
                 ports={'3002/tcp': 3002},
                 tty=True,
                 volumes={
@@ -305,10 +305,16 @@ class ASRService:
             return response
 
         logger.info(f'Sending request for transcript segmentation')
+
+        # Primitive logic to define timeout
+        duration = request.transcript_segments[-1].end
+        segmentation_timeout = 0.25 * duration
+
         try:
             response = httpx.post(
                 'http://127.0.0.1:3002/nlp/segmentation',
-                json=request.model_dump()
+                json=request.model_dump(),
+                timeout=segmentation_timeout
             )
             response.raise_for_status()
             logger.info(f'Segmentation finished')

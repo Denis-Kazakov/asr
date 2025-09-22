@@ -3,6 +3,7 @@ from enum import Enum  # StrEnum will not work in the Faster Whisper container w
 from typing import Any
 
 from pydantic import Field, BaseModel, FilePath, model_validator
+from pygments.lexer import default
 from typing_extensions import Self
 
 from app.shared.model_configs import TranscriptionEngine, TRANSCRIPTION_ENGINE_CONFIGS
@@ -105,17 +106,17 @@ class ServiceState(BaseModel):
     details: str = Field(..., description='Error message or loaded model specifications')
 
 
-class TimeStampedWord(BaseModel):
+class TimestampedWord(BaseModel):
     start: float = Field(..., description='Start time of the word', ge=0)
     end: float = Field(..., description='End time of the word', ge=0)
     word: str = Field(..., description='The word')
 
 
 class TranscriptSegment(BaseModel):
-    start: float = Field(..., description='Start time of the segment', ge=0)
-    end: float = Field(..., description='End time of the segment', ge=0)
+    start: float = Field(default=0.0, description='Start time of the segment', ge=0)
+    end: float = Field(default=0.0, description='End time of the segment', ge=0)
     text: str = Field(..., description='Segment text')
-    words: list[TimeStampedWord] | None = Field(default=None, description='Words included in this segment with their timestamps')
+    words: list[TimestampedWord] | None = Field(default=None, description='Words included in this segment with their timestamps')
 
 
 class TranscriptionResponse(BaseModel):
@@ -148,6 +149,7 @@ class ASRMetricsResponse(BaseModel):
     cer: float = Field(..., description='Character error rate', ge=0)
     wer_normalized: float = Field(..., description='Word error rate after inverse normalization', ge=0)
     cer_normalized: float = Field(..., description='Character error rate after inverse normalization', ge=0)
+
 
 class SegmentationRequest(TranscriptionResponse):
     """Request to change transcript segmentation, e.g. make sure it is segmented by sentences"""

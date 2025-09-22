@@ -3,7 +3,7 @@ import logging
 from faster_whisper import WhisperModel
 
 from app.transcribers.transcriber_base import SpeechTranscriberBase
-from app.shared.data_models import TranscriptionServiceRequest, ModelSpec, TranscriptionResponse, TranscriptSegment,TimeStampedWord
+from app.shared.data_models import TranscriptionServiceRequest, ModelSpec, TranscriptionResponse, TranscriptSegment,TimestampedWord
 
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class SpeechTranscriber(SpeechTranscriberBase):
                 logger.debug(f'Segment: {segment}')
                 transcript_text.append(segment.text)
                 if request.word_timestamps:
-                    words = [TimeStampedWord(start=word.start, end=word.end, word=word.word) for word in segment.words]
+                    words = [TimestampedWord(start=word.start, end=word.end, word=word.word) for word in segment.words]
                 else:
                     words = None
                 transcript_segments.append(

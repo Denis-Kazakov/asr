@@ -4,7 +4,7 @@ from typing import List, Union
 import stanza
 
 from app.nlp.transcript_segmentation.segmenter_base import SegmenterBase
-from app.shared.data_models import SegmentationRequest, TranscriptionResponse
+from app.shared.data_models import SegmentationRequest, TranscriptionResponse, TranscriptSegment, TimestampedWord
 
 logger = logging.getLogger('default')
 
@@ -50,17 +50,23 @@ class Segmenter(SegmenterBase):
         assert current_position == len(concatenated_words), "Transcript word concatenation error"
 
         # Check if Stanza model for the language has been loaded and load if not
-        if not self.splitters.get(transcript.language):
-            logger.info(f'Loading Stanza model for language code: {transcript.language}')
+        if not self.splitters.get(transcript.language_code):
+            logger.info(f'Loading Stanza model for language code: {transcript.language_code}')
             try:
-                self.splitters[transcript.language] = stanza.Pipeline(transcript.language, processors='tokenize')
+                self.splitters[transcript.language_code] = stanza.Pipeline(
+                    transcript.language_code,
+                    processors='tokenize',
+                    use_gpu=False,
+                    model_dir='/project/app/nlp/transcript_segmentation/tokenizer_models',
+                    download_method=None
+                )
             except Exception as e:
-                logger.error(f'Failed to load Stanza model for language code: {transcript.language}. Error: {str(e)}')
-                raise ImportError(f'Model for language code {transcript.language} cannot be loaded. Error: {str(e)}')
+                logger.error(f'Failed to load Stanza model for language code: {transcript.language_code}. Error: {str(e)}')
+                raise ImportError(f'Model for language code {transcript.language_code} cannot be loaded. Error: {str(e)}')
 
         # Split transcript text into sentences
-        logger.debug(f'Text for splitting: {transcript.text}')
-        sentences = [sentence.text for sentence in self.splitters[transcript.language](transcript.text).sentences]
+        logger.debug(f'Text for splitting: {transcript.transcript_text}')
+        sentences = [sentence.text for sentence in self.splitters[transcript.language_code](transcript.transcript_text).sentences]
         logger.debug(f'Sentences after splitting: {sentences[:5]}')
 
         # Concatenate sentences into a single text and get sentence number for each character.
@@ -102,7 +108,6 @@ class Segmenter(SegmenterBase):
         for sentence in sentences:
             segments.append(
                 TranscriptSegment(
-                    start=0.0,  # Value to initialize class instance, will be replaced with actual time
                     text=sentence,
                     words=[]
                 )
@@ -125,14 +130,16 @@ class Segmenter(SegmenterBase):
             segment.start = segment.words[0].start
             segment.end = segment.words[-1].end
         logger.debug(f'Segments: {segments[:3]}')
-        return TranscriberOutput(
-            language=transcript.language,
-            text=transcript.text,
-            segments=TranscriptSegments(segments=segments),
-            duration=transcript.duration
+        return TranscriptionResponse(
+            transcript_text=transcript.transcript_text,
+            transcript_segments=segments,
+            language_code=transcript.language_code,
+            error=None
         )
 
-    def _get_sentence_number(self, s: List[int], idx: Union[int, None]) -> Union[int, None]:
+
+    @staticmethod
+    def _get_sentence_number(s: List[int], idx: Union[int, None]) -> Union[int, None]:
         """
         Input: character number in concatenated_sentences (can be None)
         Output: number of the sentence containing this character
